@@ -31,23 +31,24 @@ document.addEventListener('DOMContentLoaded', () => {
         "Awesome! 🎉"
     ];
 
-    // Simulate Fetch API for any food name
+    // Fetch calories from real API
     async function fetchCaloriesFromAPI(food) {
-        // Simulate a real API call with a delay
-        const mockDB = {
-            "apple": 95,
-            "banana": 105,
-            "egg": 78,
-            "chicken breast": 165,
-            "rice": 200,
-            "salad": 80
-        };
-        return new Promise(resolve => {
-            setTimeout(() => {
-                // Return from mockDB or a random value if not found
-                resolve(mockDB[food.toLowerCase()] || Math.floor(Math.random() * 200) + 50);
-            }, 700);
-        });
+        const apiKey = 'VEQ8Zdgb99/ZxcNqssikJQ==tRtU1k184D3Kr7m2';
+        try {
+            const response = await fetch(`https://api.api-ninjas.com/v1/nutrition?query=${encodeURIComponent(food)}`, {
+                headers: { 'X-Api-Key': apiKey }
+            });
+            if (!response.ok) throw new Error('API error');
+            const data = await response.json();
+            if (data && data.length > 0 && data[0].calories) {
+                return Math.round(data[0].calories);
+            } else {
+                return '';
+            }
+        } catch (err) {
+            alert('Could not fetch calories. Please try again.');
+            return '';
+        }
     }
 
     // Cookie helpers
