@@ -18,7 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveSettings = document.getElementById('save-settings');
     const calorieFilter = document.getElementById('calorie-filter');
 
-    let items = [];
+    // Load from localStorage
+    let items = JSON.parse(localStorage.getItem('calorieItems')) || [];
     let dailyGoal = parseInt(localStorage.getItem('dailyGoal')) || 2000;
 
     // Motivational messages
@@ -30,12 +31,57 @@ document.addEventListener('DOMContentLoaded', () => {
         "Awesome! 🎉"
     ];
 
+    // Simulate Fetch API for quick add foods
+    async function fetchFoodCalories(food) {
+        // Simulated API response
+        const foodDB = {
+            "Apple": 95,
+            "Banana": 105,
+            "Egg": 78,
+            "Chicken Breast": 165,
+            "Rice (1 cup)": 200,
+            "Salad": 80
+        };
+        return new Promise(resolve => {
+            setTimeout(() => resolve(foodDB[food] || 100), 200);
+        });
+    }
+
+    // Cookie helpers
+    function setCookie(name, value, days = 365) {
+        const expires = new Date(Date.now() + days*24*60*60*1000).toUTCString();
+        document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
+    }
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
+        return null;
+    }
+
+    // Use cookies for items
+    function saveItems() {
+        setCookie('calorieItems', JSON.stringify(items));
+        localStorage.setItem('calorieItems', JSON.stringify(items)); // fallback for old users
+    }
+    function loadItems() {
+        let cookieItems = getCookie('calorieItems');
+        if (cookieItems) {
+            try { return JSON.parse(cookieItems); } catch { return []; }
+        }
+        // fallback to localStorage for old users
+        return JSON.parse(localStorage.getItem('calorieItems')) || [];
+    }
+
+    // Replace initial items load:
+    let items = loadItems();
+
     function renderList(filter = '') {
         calorieList.innerHTML = '';
         let filtered = items.filter(item =>
             item.food.toLowerCase().includes(filter.toLowerCase())
         );
-        // Apply calorie filter
+        // Calorie filter
         if (calorieFilter) {
             if (calorieFilter.value === 'above') {
                 filtered = filtered.filter(item => item.calories > 50);
@@ -87,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const calories = parseInt(caloriesInput.value);
         if (food && !isNaN(calories) && calories > 0) {
             items.push({ food, calories });
+            saveItems();
             foodInput.value = '';
             caloriesInput.value = '';
             renderList(filterInput.value);
@@ -101,20 +148,50 @@ document.addEventListener('DOMContentLoaded', () => {
         renderList(filterInput.value);
     });
 
+    if (calorieFilter) {
+        calorieFilter.addEventListener('change', () => {
+            renderList(filterInput.value);
+        });
+    }
+
     calorieList.addEventListener('click', (e) => {
         if (e.target.closest('.delete-btn')) {
             const idx = parseInt(e.target.closest('.delete-btn').getAttribute('data-idx'));
-            // Find the correct index in the filtered list
-            const filter = filterInput.value.toLowerCase();
-            const filtered = items.filter(item =>
-                item.food.toLowerCase().includes(filter)
+            // Find correct index in filtered list
+            let filtered = items.filter(item =>
+                item.food.toLowerCase().includes(filterInput.value.toLowerCase())
             );
+            if (calorieFilter.value === 'above') {
+                filtered = filtered.filter(item => item.calories > 50);
+            } else if (calorieFilter.value === 'below') {
+                filtered = filtered.filter(item => item.calories <= 50);
+            }
             const itemToDelete = filtered[idx];
-            // Remove from the main items array
             const realIdx = items.findIndex(item => item === itemToDelete);
             if (realIdx > -1) items.splice(realIdx, 1);
+            saveItems();
             renderList(filterInput.value);
         }
+    });
+
+    // Quick Add Foods
+    document.querySelectorAll('.quick-add').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const food = btn.getAttribute('data-food');
+            let calories = btn.getAttribute('data-calories');
+            if (!calories) {
+                calories = await fetchFoodCalories(food);
+            }
+            calories = parseInt(calories);
+            if (food && !isNaN(calories)) {
+                items.push({ food, calories });
+                saveItems();
+                renderList(filterInput.value);
+                motivation.textContent = messages[Math.floor(Math.random() * messages.length)];
+                motivation.classList.remove('hidden');
+                setTimeout(() => motivation.classList.add('hidden'), 2000);
+            }
+        });
     });
 
     // Settings modal logic
@@ -135,29 +212,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Quick Add Foods
-    document.querySelectorAll('.quick-add').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const food = btn.getAttribute('data-food');
-            const calories = parseInt(btn.getAttribute('data-calories'));
-            if (food && !isNaN(calories)) {
-                items.push({ food, calories });
-                renderList(filterInput.value);
-                motivation.textContent = messages[Math.floor(Math.random() * messages.length)];
-                motivation.classList.remove('hidden');
-                setTimeout(() => motivation.classList.add('hidden'), 2000);
-            }
-        });
-    });
-
-    // Initial render
-    goalValue.textContent = dailyGoal;
-    renderList();
-
     // Close modal on outside click
     settingsModal.addEventListener('click', (e) => {
         if (e.target === settingsModal) {
             settingsModal.classList.add('hidden');
         }
     });
+
+    // Reset button logic
+    const resetBtn = document.getElementById('reset-btn');
+    resetBtn.addEventListener('click', () => {
+        if (confirm('Clear all food entries?')) {
+            items = [];
+            saveItems();
+            renderList(filterInput.value);
+            updateTotal([]);
+        }
+    });
+
+    // Initial render
+    goalValue.textContent = dailyGoal;
+    renderList();
 });
