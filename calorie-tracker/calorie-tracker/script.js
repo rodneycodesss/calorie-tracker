@@ -31,19 +31,22 @@ document.addEventListener('DOMContentLoaded', () => {
         "Awesome! 🎉"
     ];
 
-    // Simulate Fetch API for quick add foods
-    async function fetchFoodCalories(food) {
-        // Simulated API response
-        const foodDB = {
-            "Apple": 95,
-            "Banana": 105,
-            "Egg": 78,
-            "Chicken Breast": 165,
-            "Rice (1 cup)": 200,
-            "Salad": 80
+    // Simulate Fetch API for any food name
+    async function fetchCaloriesFromAPI(food) {
+        // Simulate a real API call with a delay
+        const mockDB = {
+            "apple": 95,
+            "banana": 105,
+            "egg": 78,
+            "chicken breast": 165,
+            "rice": 200,
+            "salad": 80
         };
         return new Promise(resolve => {
-            setTimeout(() => resolve(foodDB[food] || 100), 200);
+            setTimeout(() => {
+                // Return from mockDB or a random value if not found
+                resolve(mockDB[food.toLowerCase()] || Math.floor(Math.random() * 200) + 50);
+            }, 700);
         });
     }
 
@@ -74,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Replace initial items load:
-    let items = loadItems();
+    items = loadItems();
 
     function renderList(filter = '') {
         calorieList.innerHTML = '';
@@ -233,4 +236,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial render
     goalValue.textContent = dailyGoal;
     renderList();
+
+    // Fetch Calories Button Handler
+    const fetchBtn = document.getElementById('fetch-calories');
+    fetchBtn.addEventListener('click', async () => {
+        const food = foodInput.value.trim();
+        if (!food) {
+            caloriesInput.value = '';
+            caloriesInput.placeholder = "Enter food name first!";
+            return;
+        }
+        caloriesInput.value = '';
+        caloriesInput.placeholder = "Fetching...";
+        const calories = await fetchCaloriesFromAPI(food);
+        caloriesInput.value = calories;
+        caloriesInput.placeholder = "Calories";
+    });
 });
